@@ -90,8 +90,14 @@ Preguntas abiertas:
 - **Recepción agenda** a los clientes con los doctores.
 - Recordatorio **24 h antes**, una plantilla, **sin botones** por ahora.
 - **Sin Google Calendar**: Vocero es la única agenda (los doctores no lo usan).
-- Asignación de doctor (el que elige el cliente vs. el que esté libre):
-  **por evaluar**.
+- Hoy la agenda es un **Excel improvisado**. Sin migración automática: las
+  citas futuras se capturan a mano en Vocero.
+- **Recepción asigna el doctor** con su propio criterio. Algunos clientes
+  tienen doctor preferido (enlaza con "Dr. Titular" de la sección 2). No hay
+  asignación automática "el que esté libre" en v1.
+- Los doctores **consultan su agenda en recepción**. v1 no necesita usuarios
+  ni vista propia para doctores; si acaso, imprimir la agenda del día por doctor.
+- Costo de plantillas aceptado; el volumen de citas no es preocupación.
 
 ### Diseño propuesto
 | Pieza | Cambio |
@@ -106,13 +112,10 @@ Preguntas abiertas:
 | Bot (Nea) | Al final: ofrecer horarios por doctor/tipo con la garantía de `offered_slot` |
 
 ### Preguntas abiertas
-1. ¿Qué agenda usan hoy? ¿Hay que **migrar las citas futuras** al arrancar?
-2. Asignación: ¿el cliente elige doctor, recepción asigna, o "el que esté libre"?
-3. ¿Cómo ven los doctores su agenda? (usuario de Vocero con vista solo de su
-   agenda, impresión del día, o resumen diario)
-4. Tipos de cita exactos y su duración.
-5. Texto de las plantillas (recordatorio, cancelación) para aprobarlas en Meta.
-6. Volumen de citas al mes (costo de plantillas fuera de la ventana de 24 h).
+1. Tipos de cita exactos y su duración (30 / 45 min).
+2. Texto de las plantillas (recordatorio 24 h, cancelación) para aprobarlas
+   en Meta. Se define más adelante.
+3. ¿Hace falta imprimir la agenda del día por doctor para recepción?
 
 ## Orden sugerido
 1. Conectar número + Nea; validar el Pipeline en uso real.
