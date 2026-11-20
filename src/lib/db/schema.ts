@@ -390,6 +390,15 @@ export const conversation = pgTable(
     lastInboundAt: timestamp("last_inbound_at"),
     lastMessageAt: timestamp("last_message_at"),
     unreadCount: integer("unread_count").notNull().default(0),
+    /**
+     * Pipeline de la bandeja (fork Cima): columna del tablero de
+     * conversaciones. NULL = Nuevos. Seguimiento y Terminada solo se ponen a
+     * mano; abrir o responder NO la mueve. Única regla automática: un
+     * entrante del cliente en Terminada la regresa a Nuevos (ingest.ts).
+     * Independiente del pipeline de leads (`lead.stage_id`).
+     */
+    inboxStage: text("inbox_stage", { enum: ["seguimiento", "terminada"] }),
+    inboxStageAt: timestamp("inbox_stage_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

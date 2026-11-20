@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, parseBody, withAuth } from "@/lib/api";
 import { canConfigure } from "@/lib/auth/roles";
+import { INBOX_STAGES } from "@/lib/types";
 import { newId } from "@/lib/db/ids";
 import { construirEventoOlvido } from "@/server/brains/contract";
 import { avisarOlvido, type ResultadoOlvido } from "@/server/brains/deliver";
@@ -14,6 +15,8 @@ const patchSchema = z.object({
   aiEnabled: z.boolean().optional(),
   reactivate: z.boolean().optional(),
   markRead: z.boolean().optional(),
+  // Pipeline de la bandeja: mover una conversación a mano, una a la vez.
+  inboxStage: z.enum(INBOX_STAGES).optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };

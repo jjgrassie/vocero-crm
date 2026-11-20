@@ -2,6 +2,10 @@
 
 import type { Channel } from "@/lib/channels";
 
+/** Columnas del pipeline de la bandeja. En la base, `nuevos` es NULL. */
+export const INBOX_STAGES = ["nuevos", "seguimiento", "terminada"] as const;
+export type InboxStage = (typeof INBOX_STAGES)[number];
+
 export type ConversationDto = {
   id: string;
   /** 014: canal de la conversacion, para el distintivo de la bandeja. */
@@ -14,6 +18,13 @@ export type ConversationDto = {
   lastInboundAt: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  /** Pipeline de la bandeja (fork Cima): columna del tablero. */
+  inboxStage: InboxStage;
+  /**
+   * Desde cuándo espera respuesta: el último mensaje es del cliente. `null`
+   * si lo último lo mandó el negocio (o no hay mensajes).
+   */
+  waitingSince: string | null;
   windowOpen: boolean;
   windowRemainingMs: number;
   /**

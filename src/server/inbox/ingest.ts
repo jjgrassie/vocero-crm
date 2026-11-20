@@ -531,6 +531,10 @@ export async function ingestInboundMessage(input: {
       lastInboundAt: waTimestamp,
       lastMessageAt: waTimestamp,
       unreadCount: sql`${schema.conversation.unreadCount} + 1`,
+      // Pipeline de la bandeja: la ÚNICA regla automática. Un mensaje del
+      // cliente en Terminada la regresa a Nuevos (NULL); en Seguimiento se queda.
+      inboxStage: sql`case when ${schema.conversation.inboxStage} = 'terminada' then null else ${schema.conversation.inboxStage} end`,
+      inboxStageAt: sql`case when ${schema.conversation.inboxStage} = 'terminada' then now() else ${schema.conversation.inboxStageAt} end`,
       updatedAt: new Date(),
     })
     .where(eq(schema.conversation.id, conversation.id));

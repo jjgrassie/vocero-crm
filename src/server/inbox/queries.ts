@@ -3,7 +3,7 @@ import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { isWindowOpen, replyWindow, windowRemainingMs } from "@/server/inbox/window";
 import { capabilitiesFor, windowMsFor } from "@/server/channels/capabilities";
-import type { ConversationDto } from "@/lib/types";
+import type { ConversationDto, InboxStage } from "@/lib/types";
 
 /**
  * 018 — El anuncio de origen viaja con la conversación. La llave única
@@ -174,6 +174,14 @@ export function serializeConversation(
     lastInboundAt: c.lastInboundAt?.toISOString() ?? null,
     lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
     unreadCount: c.unreadCount,
+    inboxStage: c.inboxStage ?? "nuevos",
+    // El entrante sella lastMessageAt = lastInboundAt; cualquier saliente
+    // posterior lo adelanta. Igualdad (o inbound más nuevo) = espera respuesta.
+    waitingSince:
+      c.lastInboundAt &&
+      (!c.lastMessageAt || c.lastInboundAt.getTime() >= c.lastMessageAt.getTime())
+        ? c.lastInboundAt.toISOString()
+        : null,
     // 022: la ventana es la del canal (48 h en TikTok, 24 en los demás).
     windowOpen: isWindowOpen(c.lastInboundAt, new Date(), windowMsFor(c.channel)),
     windowRemainingMs: windowRemainingMs(
@@ -198,10 +206,19 @@ export function serializeConversation(
 export async function updateConversation(
   organizationId: string,
   conversationId: string,
-  patch: { aiEnabled?: boolean; reactivate?: boolean; markRead?: boolean }
+  patch: {
+    aiEnabled?: boolean;
+    reactivate?: boolean;
+    markRead?: boolean;
+    inboxStage?: InboxStage;
+  }
 ) {
   const db = getDb();
   const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.inboxStage !== undefined) {
+    set.inboxStage = patch.inboxStage === "nuevos" ? null : patch.inboxStage;
+    set.inboxStageAt = new Date();
+  }
   if (patch.aiEnabled !== undefined) set.aiEnabled = patch.aiEnabled;
   if (patch.reactivate) {
     set.handoffAt = null;

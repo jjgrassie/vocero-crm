@@ -9,9 +9,12 @@ import type { NotaDto } from "@/lib/notas";
 import type { EventoHiloDto } from "@/lib/eventos-hilo";
 import type {
   ConversationDto,
+  InboxStage,
   MessageDto,
   QuotedMessageDto,
 } from "@/lib/types";
+import { CheckCheck, Columns3, List, X } from "lucide-react";
+import { InboxPipeline } from "./inbox-pipeline";
 import { CHANNEL_LABEL, type Channel } from "@/lib/channels";
 import { ChannelBadge } from "@/components/channel-badge";
 import { useEvents } from "@/components/use-events";
@@ -77,6 +80,24 @@ export function InboxClient({
   // Se incrementa con cada evento SSE que puede cambiar la etapa/lead o el
   // estado del agente: el panel de detalles lo observa y refetch en vivo.
   const [detailRev, setDetailRev] = useState(0);
+  // Pipeline de la bandeja: la vista elegida se recuerda en este navegador.
+  const [vista, setVista] = useState<"lista" | "pipeline">("lista");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("vocero.vistaBandeja") === "pipeline") setVista("pipeline");
+    } catch {
+      // sin almacenamiento: se queda la lista
+    }
+  }, []);
+  const cambiarVista = useCallback((v: "lista" | "pipeline") => {
+    setVista(v);
+    try {
+      localStorage.setItem("vocero.vistaBandeja", v);
+    } catch {
+      // sin almacenamiento: la elección dura lo que la pestaña
+    }
+  }, []);
+  const enPipeline = vista === "pipeline";
 
   useEffect(() => {
     if (!isWideEnoughForPanel()) return;
@@ -377,6 +398,25 @@ export function InboxClient({
     [refetchMessages, refetchConversations]
   );
 
+  /**
+   * Pipeline de la bandeja: mover UNA conversación de columna, a mano. Se
+   * pinta al instante y el servidor confirma; si falla, el refetch la regresa.
+   */
+  const moveConversation = useCallback(
+    async (id: string, inboxStage: InboxStage) => {
+      setConversations((prev) =>
+        prev?.map((c) => (c.id === id ? { ...c, inboxStage } : c)) ?? prev
+      );
+      await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ inboxStage }),
+      }).catch(() => null);
+      void refetchConversations();
+    },
+    [refetchConversations]
+  );
+
   const patchConversation = useCallback(
     async (patch: { aiEnabled?: boolean; reactivate?: boolean }) => {
       if (!selectedIdRef.current) return;
@@ -417,9 +457,53 @@ export function InboxClient({
   return (
     // 061 · D3 — En escritorio, la lista, el hilo y el panel son tarjetas
     // separadas sobre el marco.
-    <div className="flex h-full lg:gap-[var(--hueco)]">
-      {/* Móvil: una columna a la vez. La lista cede la pantalla completa al
-          hilo en cuanto hay conversación elegida (patrón maestro-detalle). */}
+    <div className="flex h-full flex-col lg:gap-[var(--hueco)]">
+      {/* Pipeline de la bandeja: cambiar entre la lista y el tablero. */}
+      <div
+        role="tablist"
+        aria-label="Vista de la bandeja"
+        className={cn(
+          "flex shrink-0 items-center gap-1 border-b bg-background px-2 py-1.5 lg:self-start lg:rounded-lg lg:border lg:px-1 lg:py-1",
+          selected && !enPipeline && "max-md:hidden"
+        )}
+      >
+        {(
+          [
+            { id: "lista", label: "Lista", Icon: List },
+            { id: "pipeline", label: "Pipeline", Icon: Columns3 },
+          ] as const
+        ).map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={vista === id}
+            onClick={() => cambiarVista(id)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              vista === id
+                ? "bg-foreground text-background"
+                : "text-text-2 hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex min-h-0 flex-1 lg:gap-[var(--hueco)]">
+      {enPipeline ? (
+        <section className="min-w-0 flex-1">
+          <InboxPipeline
+            conversations={conversations}
+            selectedId={selectedId}
+            onOpen={select}
+            onMove={(id, stage) => void moveConversation(id, stage)}
+          />
+        </section>
+      ) : (
+      /* Móvil: una columna a la vez. La lista cede la pantalla completa al
+          hilo en cuanto hay conversación elegida (patrón maestro-detalle). */
       <section
         className={cn(
           "w-full shrink-0 overflow-hidden md:w-[300px] md:border-r lg:w-[340px] lg:overflow-visible lg:border-r-0",
@@ -434,11 +518,27 @@ export function InboxClient({
           onSeeded={() => void refetchConversations()}
         />
       </section>
+      )}
+
+      {/* En el pipeline, el chat es un panel lateral encima del tablero. */}
+      {enPipeline && selected && (
+        <button
+          aria-label="Cerrar el chat"
+          tabIndex={-1}
+          onClick={() => setSelectedId(null)}
+          className="fixed inset-0 z-30 bg-overlay"
+        />
+      )}
 
       <section
         className={cn(
-          "flex min-w-0 flex-1 flex-col lg:gap-[var(--hueco)]",
-          !selected && "max-md:hidden"
+          "flex min-w-0 flex-col lg:gap-[var(--hueco)]",
+          enPipeline
+            ? cn(
+                "fixed inset-y-0 right-0 z-40 w-full bg-background shadow-pop sm:w-[min(600px,92vw)] lg:p-[var(--hueco)]",
+                !selected && "hidden"
+              )
+            : cn("flex-1", !selected && "max-md:hidden")
         )}
       >
         {selected ? (
@@ -447,10 +547,17 @@ export function InboxClient({
               {/* Volver a la lista: en móvil el hilo ocupa toda la pantalla. */}
               <button
                 onClick={() => setSelectedId(null)}
-                aria-label="Volver a las conversaciones"
-                className="shrink-0 rounded-md p-1.5 text-text-2 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+                aria-label={enPipeline ? "Cerrar el chat" : "Volver a las conversaciones"}
+                className={cn(
+                  "shrink-0 rounded-md p-1.5 text-text-2 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  !enPipeline && "md:hidden"
+                )}
               >
-                <ChevronLeft className="h-5 w-5" strokeWidth={1.8} />
+                {enPipeline ? (
+                  <X className="h-5 w-5" strokeWidth={1.8} />
+                ) : (
+                  <ChevronLeft className="h-5 w-5" strokeWidth={1.8} />
+                )}
               </button>
               <div className="flex min-w-0 flex-1 items-center gap-3 p-1">
                 <ContactAvatar
@@ -488,7 +595,23 @@ export function InboxClient({
                   </p>
                 </div>
               </div>
-              {!panelOpen && (
+              {/* Pipeline de la bandeja: atender = pasar ESTE chat a
+                  Terminada, a mano y uno por uno (nunca en lote). */}
+              {selected.inboxStage === "terminada" ? (
+                <span className="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-[11.5px] font-medium text-text-3">
+                  Terminada
+                </span>
+              ) : (
+                <button
+                  onClick={() => void moveConversation(selected.id, "terminada")}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-border-strong px-3 py-1.5 text-[12px] font-medium text-text-2 transition-colors hover:border-text-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  <span className="max-sm:hidden">Marcar como atendido</span>
+                  <span className="sm:hidden">Atendido</span>
+                </button>
+              )}
+              {!panelOpen && !enPipeline && (
                 <button
                   onClick={() => togglePanel(true)}
                   aria-label="Mostrar detalles"
@@ -570,7 +693,7 @@ export function InboxClient({
       </section>
 
       {/* Velo del cajón de detalles (solo donde no caben tres columnas). */}
-      {panelOpen && selected && (
+      {panelOpen && selected && !enPipeline && (
         <button
           aria-label="Cerrar los detalles"
           tabIndex={-1}
@@ -585,7 +708,7 @@ export function InboxClient({
           // Debajo de xl no hay ancho para una tercera columna: el panel se
           // vuelve un cajón que entra desde la derecha, encima del hilo.
           "max-xl:fixed max-xl:inset-y-0 max-xl:right-0 max-xl:z-40 max-xl:w-auto max-xl:bg-popover max-xl:transition-transform",
-          panelOpen && selected
+          panelOpen && selected && !enPipeline
             ? "w-[320px] max-xl:translate-x-0 max-xl:shadow-pop"
             : "w-0 border-l-0 max-xl:translate-x-full xl:hidden"
         )}
@@ -602,6 +725,7 @@ export function InboxClient({
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }
