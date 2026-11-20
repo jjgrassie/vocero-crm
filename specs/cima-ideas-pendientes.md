@@ -112,15 +112,45 @@ Preguntas abiertas:
 | Bot (Nea) | Al final: ofrecer horarios por doctor/tipo con la garantía de `offered_slot` |
 
 ### Preguntas abiertas
-1. Tipos de cita exactos y su duración (30 / 45 min).
+1. Tipos de cita: varían mucho, pero duran **entre 30 y 45 min**. Basta con
+   elegir la duración al agendar (no hace falta catálogo cerrado en v1).
 2. Texto de las plantillas (recordatorio 24 h, cancelación) para aprobarlas
    en Meta. Se define más adelante.
 3. ¿Hace falta imprimir la agenda del día por doctor para recepción?
+
+### 3b. Resumen diario de citas a cada doctor por WhatsApp
+Idea aprobada para documentar (2026-11-19). Depende de la agenda por doctor y
+del barrido de recordatorios (mismo proceso in-process y mismo envío de
+plantillas).
+
+- Cada doctor con su número de WhatsApp en la tabla de doctores.
+- A una hora fija, Vocero arma la lista del día por doctor y la envía.
+  Idempotente: una vez por doctor y por día; zona horaria del negocio.
+- **Restricción de Meta**: fuera de la ventana de 24 h solo plantilla
+  aprobada, y los parámetros de plantilla **no admiten saltos de línea**.
+  Opciones:
+  - **A (recomendada)**: plantilla corta ("hoy tienes N citas, la primera a
+    las HH:MM; responde *agenda*") → al responder se abre la ventana y Vocero
+    manda la lista completa en texto libre (y cambios del día sin costo).
+  - **B**: plantilla con botón URL a una página privada de su agenda del día
+    (link firmado que caduca ese día).
+  - **C**: todo en una línea dentro de la plantilla (se lee mal con 6+ citas).
+- Los números de los doctores deben marcarse como **personal**: fuera del
+  Pipeline, el bot nunca les contesta y no cuentan en métricas.
+- Opcional después: avisar al doctor de citas agendadas/canceladas el mismo día.
+- Costo estimado bajo (~10 doctores × ~22 días ≈ 220 plantillas de utilidad/mes).
+
+Preguntas abiertas:
+1. Hora de envío (mismo día temprano o noche anterior).
+2. Datos por cita (hora, mascota, dueño, tipo, notas).
+3. Opción A, B o C.
+4. ¿Avisar los días sin citas?
+5. Consentimiento de los doctores para recibirlo en su WhatsApp personal.
 
 ## Orden sugerido
 1. Conectar número + Nea; validar el Pipeline en uso real.
 2. Etiquetas de contacto (gestión desde el panel del chat).
 3. Clientes/mascotas/vacunas + importador.
-4. Agenda por doctor + recordatorios de 24 h.
+4. Agenda por doctor + recordatorios de 24 h + resumen diario a doctores.
 5. Bot que agenda (Nea) por doctor.
 6. Clasificación de mensajes (capas 1–4).
