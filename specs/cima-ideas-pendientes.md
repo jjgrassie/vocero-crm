@@ -66,8 +66,58 @@ Preguntas abiertas:
    anonimizado).
 5. Volumen aproximado de clientes y mascotas.
 
+## 3. Agenda de varios doctores + recordatorios por WhatsApp
+
+### Lo que trae Vocero hoy (bandera `AGENDA`, apagada en cimachat)
+- `calendar_settings`: UN horario semanal por organización (slot, buffer,
+  anticipación, días hacia adelante, zona horaria).
+- `booking`: citas con estados (agendada/realizada/no_show/cancelada),
+  bloqueos, origen manual o IA; pantalla Citas.
+- `offered_slot`: el bot solo reserva horarios ofrecidos y libres.
+- **Bloqueante para multi-doctor**: el índice único
+  `booking_org_active_slot_uq` (organización + hora) impide dos citas a la
+  misma hora en todo el negocio.
+- Ocupado = solo citas en la base (`availability.ts#getBusyIntervals`).
+- Conector Google: solo escribe eventos en un calendario; no lee ocupado.
+- No hay recordatorios automáticos; sí envío manual de plantillas.
+
+### Decisiones del dueño (2026-11-19)
+- El sistema veterinario tiene agenda pero **no se usa**; hoy usan otra
+  agenda que falla sobre todo por **no tener recordatorios**.
+- **~10 doctores**, una sola sucursal.
+- Citas de **30 a 45 min** (la duración depende del tipo de cita).
+- **Sin recursos** (quirófano, consultorio).
+- **Recepción agenda** a los clientes con los doctores.
+- Recordatorio **24 h antes**, una plantilla, **sin botones** por ahora.
+- **Sin Google Calendar**: Vocero es la única agenda (los doctores no lo usan).
+- Asignación de doctor (el que elige el cliente vs. el que esté libre):
+  **por evaluar**.
+
+### Diseño propuesto
+| Pieza | Cambio |
+|---|---|
+| Doctores | Tabla nueva: nombre, color, activo, usuario de Vocero (opcional) |
+| Horario por doctor | Horario semanal + excepciones (vacaciones, días libres, comida) |
+| Tipos de cita | Catálogo con duración (30/45 min) |
+| Citas | `booking.doctor_id`; índice anti-empalme por doctor (no por negocio) |
+| Disponibilidad | Por doctor, o combinada ("el que esté libre") |
+| Pantalla | Calendario día/semana con una columna por doctor; alta manual para recepción |
+| Recordatorios | Barrido periódico in-process: cita en ~24 h y sin recordatorio → plantilla de utilidad aprobada; marcar enviado (idempotente). Cancelación/reprogramación desde Vocero → su plantilla |
+| Bot (Nea) | Al final: ofrecer horarios por doctor/tipo con la garantía de `offered_slot` |
+
+### Preguntas abiertas
+1. ¿Qué agenda usan hoy? ¿Hay que **migrar las citas futuras** al arrancar?
+2. Asignación: ¿el cliente elige doctor, recepción asigna, o "el que esté libre"?
+3. ¿Cómo ven los doctores su agenda? (usuario de Vocero con vista solo de su
+   agenda, impresión del día, o resumen diario)
+4. Tipos de cita exactos y su duración.
+5. Texto de las plantillas (recordatorio, cancelación) para aprobarlas en Meta.
+6. Volumen de citas al mes (costo de plantillas fuera de la ventana de 24 h).
+
 ## Orden sugerido
 1. Conectar número + Nea; validar el Pipeline en uso real.
 2. Etiquetas de contacto (gestión desde el panel del chat).
 3. Clientes/mascotas/vacunas + importador.
-4. Clasificación de mensajes (capas 1–4).
+4. Agenda por doctor + recordatorios de 24 h.
+5. Bot que agenda (Nea) por doctor.
+6. Clasificación de mensajes (capas 1–4).
