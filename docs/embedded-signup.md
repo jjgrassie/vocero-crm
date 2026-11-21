@@ -117,8 +117,21 @@ del número. Guárdalo; Vocero no lo almacena.
 | Conectado, pero el webhook avisa de la Cuenta de mensajes | Meta no la reveló o el token no tiene acceso a ella: escribe su ID en el formulario manual y pulsa «Registrar en Meta» |
 | Popup bloqueado | Permite ventanas emergentes para el dominio de la instancia |
 
-La coexistencia (mantener el número en la app WhatsApp Business del teléfono)
-no está en esta versión; ver «Fuera de alcance» en la spec.
+## Coexistencia (número que sigue en la app WhatsApp Business)
+
+El popup también ofrece conectar el número que ya vive en la app WhatsApp
+Business del teléfono (se escanea un QR). En ese caso Vocero **no** llama a
+`/register` (el número ya está registrado), guarda las credenciales y registra
+el webhook igual. Los mensajes que el negocio escribe desde el teléfono llegan
+como `smb_message_echoes` y aparecen en el hilo.
+
+Requisitos: app WhatsApp Business 2.24.17 o superior en el teléfono, y en el
+panel de Meta (WhatsApp › Configuración › Webhook) suscribir además los campos
+`account_update`, `history`, `smb_app_state_sync` y `smb_message_echoes`.
+
+Todavía **no** se sincronizan los contactos ni el historial anterior
+(`history` y `smb_app_state_sync` se ignoran): solo lo que llegue desde la
+conexión.
 
 ---
 

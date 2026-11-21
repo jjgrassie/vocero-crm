@@ -32,7 +32,7 @@ const eventoSchema = z.object({
 export type EventoDeAlta =
   | { kind: "cancel" }
   | { kind: "error"; message: string | null }
-  | { kind: "coexistence" }
+  | { kind: "coexistence"; wabaId: string }
   | { kind: "finish"; wabaId: string; phoneNumberId: string | null };
 
 export function leerEventoDeAlta(origin: string, raw: unknown): EventoDeAlta | null {
@@ -50,7 +50,10 @@ export function leerEventoDeAlta(origin: string, raw: unknown): EventoDeAlta | n
   const { event, data } = parsed.data;
   if (event === "CANCEL") return { kind: "cancel" };
   if (event === "ERROR") return { kind: "error", message: data?.error_message ?? null };
-  if (event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") return { kind: "coexistence" };
+  if (event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
+    // Coexistencia: Meta solo manda el waba_id (el número ya estaba registrado).
+    return data?.waba_id ? { kind: "coexistence", wabaId: data.waba_id } : null;
+  }
   if ((event === "FINISH" || event === "FINISH_ONLY_WABA") && data?.waba_id) {
     return { kind: "finish", wabaId: data.waba_id, phoneNumberId: data.phone_number_id ?? null };
   }
@@ -67,7 +70,15 @@ export function opcionesDeLogin(configId: string) {
     config_id: configId,
     response_type: "code",
     override_default_response_type: true,
-    extras: { setup: {}, sessionInfoVersion: "3", version: "v4" },
+    extras: {
+      setup: {},
+      // Ofrece también conectar el número que ya vive en la app WhatsApp
+      // Business del teléfono (coexistencia). Es el valor vigente; el viejo
+      // `coexistence` ya no es válido.
+      featureType: "whatsapp_business_app_onboarding",
+      sessionInfoVersion: "3",
+      version: "v4",
+    },
   };
 }
 

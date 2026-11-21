@@ -34,7 +34,7 @@ type Facebook = {
 type Pendiente = {
   pin: string | null;
   code?: string;
-  evento?: { wabaId: string; phoneNumberId: string | null };
+  evento?: { wabaId: string; phoneNumberId: string | null; coexistence: boolean };
   enviando: boolean;
 };
 export type ResultadoEmbebido = {
@@ -97,6 +97,7 @@ export function EmbeddedSignup({
           wabaId: p.evento.wabaId,
           phoneNumberId: p.evento.phoneNumberId,
           pin: p.pin,
+          coexistence: p.evento.coexistence,
         }),
         signal: AbortSignal.timeout(120_000),
       });
@@ -129,12 +130,10 @@ export function EmbeddedSignup({
       if (e.kind === "error") {
         return fallar(`Meta reportó un error${e.message ? `: ${e.message}` : ""}. Puedes volver a intentarlo.`);
       }
-      if (e.kind === "coexistence") {
-        return fallar(
-          "En Meta se eligió conectar la app de WhatsApp Business del teléfono (coexistencia), que esta versión no admite. No se guardó nada."
-        );
-      }
-      activo.current.evento = { wabaId: e.wabaId, phoneNumberId: e.phoneNumberId };
+      activo.current.evento =
+        e.kind === "coexistence"
+          ? { wabaId: e.wabaId, phoneNumberId: null, coexistence: true }
+          : { wabaId: e.wabaId, phoneNumberId: e.phoneNumberId, coexistence: false };
       void enviar();
     };
     window.addEventListener("message", recibir);

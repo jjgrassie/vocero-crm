@@ -242,6 +242,8 @@ export type ResultadoAlta = {
   messagingAccountId: string | null;
   /** true si esta alta llamó a `/register` (el número no estaba conectado). */
   registered: boolean;
+  /** true si el número sigue también en la app WhatsApp Business del teléfono. */
+  coexistence: boolean;
   /**
    * El PIN que generó el servidor, para que el dueño lo guarde. Solo viaja
    * en esta respuesta: no se guarda ni se registra en logs.
@@ -257,11 +259,14 @@ export async function completarAltaEmbebida(input: {
   phoneNumberId: string | null;
   /** El PIN que ya tenía el número; sin él, se genera uno. */
   pin: string | null;
+  /** Coexistencia: el número ya está registrado; NUNCA se llama a /register. */
+  coexistence?: boolean;
 }): Promise<ResultadoAlta> {
   const token = await canjearCodigo(input.code);
   const numero = await resolverNumero(token, input.wabaId, input.phoneNumberId);
+  const coexistence = input.coexistence === true;
   const pin = input.pin ?? generarPin();
-  const registered = await registrarNumero(token, numero, pin);
+  const registered = coexistence ? false : await registrarNumero(token, numero, pin);
 
   // 065 — Best-effort: sin ella, el dueño la escribe en el formulario manual.
   const messagingAccountId = await descubrirCuentaDeMensajes(input.wabaId, token);
@@ -291,6 +296,7 @@ export async function completarAltaEmbebida(input: {
     phoneNumberId: numero.id,
     messagingAccountId,
     registered,
+    coexistence,
     ...(registered && !input.pin ? { generatedPin: pin } : {}),
     webhook,
   };

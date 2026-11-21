@@ -130,7 +130,10 @@ describe("el evento de sesión de Meta", () => {
     expect(leerEventoDeAlta(FB, ev("ERROR", { error_message: "falló" }))).toEqual({ kind: "error", message: "falló" });
     expect(leerEventoDeAlta(FB, ev("FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING", { waba_id: "1" }))).toEqual({
       kind: "coexistence",
+      wabaId: "1",
     });
+    // Sin waba_id no hay con qué completar la alta
+    expect(leerEventoDeAlta(FB, ev("FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"))).toBeNull();
   });
 
   it("ignora otros orígenes, otros mensajes y IDs que no son números", () => {
@@ -146,7 +149,12 @@ describe("el evento de sesión de Meta", () => {
       config_id: "998877",
       response_type: "code",
       override_default_response_type: true,
-      extras: { setup: {}, sessionInfoVersion: "3", version: "v4" },
+      extras: {
+        setup: {},
+        featureType: "whatsapp_business_app_onboarding",
+        sessionInfoVersion: "3",
+        version: "v4",
+      },
     });
     expect(opcionesDeInit("1715957376325225", "v25.0")).toMatchObject({
       appId: "1715957376325225",
@@ -228,6 +236,17 @@ describe("el alta en el servidor", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(r2).toMatchObject({ registered: false });
     expect(r2.generatedPin).toBeUndefined();
+  });
+
+  it("coexistencia: nunca llama a /register, aunque el número no esté CONNECTED, y no devuelve PIN", async () => {
+    respond({ data: [numero("555", { status: "PENDING" })] }); // solo phone_numbers
+    const r = await completarAltaEmbebida({ ...input, phoneNumberId: null, coexistence: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(graphCall(0).url).toContain("/phone_numbers?");
+    expect(r).toMatchObject({ registered: false, coexistence: true, phoneNumberId: "555" });
+    expect(r.generatedPin).toBeUndefined();
+    expect(mocks.save).toHaveBeenCalled();
+    expect(mocks.webhook).toHaveBeenCalled();
   });
 
   it("sin phone_number_id usa el único número; con varios falla sin guardar (CA-3)", async () => {
