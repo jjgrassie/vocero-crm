@@ -29,7 +29,7 @@ import { webhookUrl, webhookVerifyToken } from "@/server/whatsapp/webhook-url";
 export function embeddedConfig() {
   const env = getEnv();
   const appId = env.META_APP_ID?.trim() ?? "";
-  const configId = env.META_EMBEDDED_CONFIG_ID?.trim() ?? "";
+  const configId = (env.META_EMBEDDED_CONFIG_ID || env.META_CONFIG_ID)?.trim() ?? "";
   const secret = env.META_APP_SECRET?.trim() ?? "";
   const ready = /^\d+$/.test(appId) && /^\d+$/.test(configId) && secret.length > 0;
   return { ready, appId, configId, secret, graphVersion: env.META_GRAPH_API_VERSION };

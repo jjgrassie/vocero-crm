@@ -1,3 +1,4 @@
+import { getEnv } from "@/lib/env";
 import { graphRequest, MetaApiError } from "@/lib/meta/client";
 
 export type ConnectionCheck =
@@ -420,8 +421,26 @@ export async function descubrirCuentaDeMensajes(
   }
 }
 
+/**
+ * Solo las apps suscritas que cuentan: con `META_APP_ID` configurado, la
+ * nuestra. El override de OTRA app no es de esta instancia ni la deja sorda:
+ * tratarlo como propio hacía omitir la suscripción y los mensajes no llegaban.
+ * Sin `META_APP_ID` no hay cómo distinguirlas y se consideran todas.
+ */
+function appsQueCuentan(res: SubscribedApps | null): NonNullable<SubscribedApps["data"]> {
+  const todas = Array.isArray(res?.data) ? res.data : [];
+  let appId: string | undefined;
+  try {
+    appId = getEnv().META_APP_ID?.trim();
+  } catch {
+    appId = undefined; // entorno inválido: no se filtra, como antes
+  }
+  if (!appId) return todas;
+  return todas.filter((app) => app?.whatsapp_business_api_data?.id === appId);
+}
+
 function hasOwnOverride(res: SubscribedApps | null, path: string): boolean {
-  return (Array.isArray(res?.data) ? res.data : []).some(
+  return appsQueCuentan(res).some(
     (app) =>
       typeof app?.override_callback_uri === "string" &&
       sameWebhookPath(app.override_callback_uri, path)
@@ -451,7 +470,7 @@ async function wabaOverride(
       { token }
     );
     return (
-      (Array.isArray(res?.data) ? res.data : [])
+      appsQueCuentan(res)
         .map((app) => app?.override_callback_uri)
         .find(
           (uri): uri is string => typeof uri === "string" && uri.trim() !== ""
